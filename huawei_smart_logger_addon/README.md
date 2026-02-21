@@ -1,4 +1,4 @@
-﻿# huawei_smart_logger_docker
+﻿# huawei smart logger docker
 Forked from https://github.com/mayberryjp/huawei_smart_logger_docker 
 
 Use this HASS addon to monitor the industry grade Huawei SmartLogger 30000. <br>
@@ -17,4 +17,5 @@ Will be done from the Addon Configuration Menu. You will need to specify
 
 ## Limitations
 The actual implementation shows the aggregated values, no separate datas (for each inverter connected separately) available.
+
 
