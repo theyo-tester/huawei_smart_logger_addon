@@ -22,6 +22,7 @@ This repository contains the following add-ons
 [![Linux](https://img.shields.io/badge/Linux-FCC624?logo=linux&logoColor=black)](#)
 
 _Monitor the industry-grade Huawei SmartLogger 30000s directly over local network with configurable update intervals._
+
 Forked from mayberryjp/huawei_smart_logger_docker to make an HASS Addon out of it
 
 <!--
