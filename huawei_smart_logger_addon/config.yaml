@@ -1,6 +1,6 @@
 name: "Huawei Smart Logger"
 description: "Addon for retrieving solar data from the industry grade Huawei SmartLogger 3000"
-version: "1.0.18"
+version: "1.0.2"
 slug: "huawei_smart_logger"
 arch:
   - aarch64
