@@ -3,16 +3,10 @@ import paho.mqtt.client as mqtt
 import logging
 import json
 import re
-import logging
 import time
 import os
-from random import randrange
 import datetime
-
 from const import IS_CONTAINER, VERSION, ENTITIES
-
-# Suppress only the single InsecureRequestWarning from urllib3 needed
-requests.packages.urllib3.disable_warnings(requests.packages.urllib3.exceptions.InsecureRequestWarning)
 
 # Setup Logging
 logging.basicConfig(level=logging.INFO)
@@ -21,18 +15,19 @@ logger = logging.getLogger(__name__)
 # Suppress SSL warnings
 requests.packages.urllib3.disable_warnings(requests.packages.urllib3.exceptions.InsecureRequestWarning)
 
-if (IS_CONTAINER):
-    HUAWEI_HOST = os.getenv("HUAWEI_HOST","https://192.168.50.38")
-    HUAWEI_PASSWORD=os.getenv("HUAWEI_PASSWORD","")
-    HUAWEI_USERNAME=os.getenv("HUAWEI_USERNAME","admin")
-    MQTT_HOST = os.getenv("MQTT_HOST","earthquake.832-5.jp")
-    MQTT_PASSWORD=os.getenv("MQTT_PASSWORD","")
-    MQTT_USERNAME=os.getenv("MQTT_USERNAME","japan")   
+# Environment Variables
+if IS_CONTAINER:
+    HUAWEI_HOST = os.getenv("HUAWEI_HOST", "https://192.168.50.38")
+    HUAWEI_PASSWORD = os.getenv("HUAWEI_PASSWORD", "")
+    HUAWEI_USERNAME = os.getenv("HUAWEI_USERNAME", "admin")
+    MQTT_HOST = os.getenv("MQTT_HOST", "earthquake.832-5.jp")
+    MQTT_PASSWORD = os.getenv("MQTT_PASSWORD", "")
+    MQTT_USERNAME = os.getenv("MQTT_USERNAME", "japan")
     UPDATE_INTERVAL = int(os.getenv("UPDATE_INTERVAL", "60"))
 
 class HuaweiSmartLoggerSensor:
     def __init__(self, name_constant):
-        name_object=ENTITIES[name_constant]
+        name_object = ENTITIES[name_constant]
         self.name = f"huawei_smart_logger_{name_constant}"
         self.device_class = name_object['type']
         self.unit_of_measurement = name_object['unit']
@@ -94,8 +89,8 @@ def send_discovery(mqtt_client):
         mqtt_client.publish(discovery_topic, payload=payload, qos=1, retain=True)
     logger.info("MQTT Discovery sent.")
 
-def request_and_publish(session, client, csrf_token):
-    # info_url for "Running Information"
+def request_and_publish(session, mqtt_client, csrf_token):
+    """Fetches data and returns True if successful, False if session failed."""
     info_url = f"{HUAWEI_HOST}/get_set_page_info.asp?type=88"
     headers = {'x-csrf-token': csrf_token}
 
@@ -121,8 +116,7 @@ def request_and_publish(session, client, csrf_token):
             entity = re.sub(r'[\s/]+', '_', entity) # Spaces/Slashes to Underscore
             value = element[7]
             state_topic = f"homeassistant/sensor/huawei_smart_logger_{entity}/state"
-            client.publish(state_topic, payload=value, qos=1, retain=False)
-
+            mqtt_client.publish(state_topic, payload=value, qos=1, retain=False)
         return True
     except Exception as e:
         logger.error(f"Data fetch error: {e}")
@@ -155,7 +149,6 @@ if __name__ == '__main__':
                 logger.warning("Session expired or fetch failed. Clearing session for retry.")
                 active_session = None
                 active_token = None
-
         
         logger.info(f"Sleeping for {UPDATE_INTERVAL} seconds...")
         time.sleep(UPDATE_INTERVAL)
