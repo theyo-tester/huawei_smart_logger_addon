@@ -1,0 +1,25 @@
+name: "Huawei Smart Logger"
+description: "Addon for retrieving solar data from the industry grade Huawei SmartLogger 3000"
+version: "1.0.18"
+slug: "huawei_smart_logger"
+arch:
+  - aarch64
+  - armhf
+  - amd64
+init: false
+options:
+  HUAWEI_HOST: "https://192.168.1.22"
+  HUAWEI_USERNAME: "admin"
+  HUAWEI_PASSWORD: "admin"
+  MQTT_HOST: "homeassistant"
+  MQTT_USERNAME: "hassio"
+  MQTT_PASSWORD: "changeMe"
+  UPDATE_INTERVAL: 60
+schema:
+  HUAWEI_HOST: str
+  HUAWEI_USERNAME: str
+  HUAWEI_PASSWORD: password
+  MQTT_HOST: str
+  MQTT_USERNAME: str
+  MQTT_PASSWORD: password
+  UPDATE_INTERVAL: int
