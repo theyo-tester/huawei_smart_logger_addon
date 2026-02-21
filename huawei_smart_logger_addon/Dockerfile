@@ -8,8 +8,9 @@ WORKDIR /huawei_smart_logger
 # Install jq for parsing JSON configuration
 RUN apt-get update && apt-get install -y jq && rm -rf /var/lib/apt/lists/*
 
-# Clone the repository
-RUN git clone https://github.com/theyo-tester/huawei_smart_logger_addon .
+# Copy all files from addon subfolder into the container
+# This replaces the 'git clone' command
+COPY . /huawei_smart_logger/
 
 # Create a virtual environment and install the dependencies
 RUN python -m venv venv
@@ -17,9 +18,8 @@ RUN venv/bin/pip install --upgrade pip
 RUN venv/bin/pip install paho.mqtt
 RUN venv/bin/pip install requests
 
-# Copy the run script
-COPY run.sh /
-RUN chmod +x /run.sh
+# Ensure your run script is executable
+RUN chmod a+x /huawei_smart_logger/run.sh
 
 # Run the app via the startup script
-CMD ["/run.sh"]
+CMD [ "/huawei_smart_logger/run.sh" ]
