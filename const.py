@@ -1,6 +1,5 @@
 IS_CONTAINER=1
-VERSION="v1.0.17"
-SLEEP_INTERVAL=60
+VERSION="v1.0.18"
 
 ENTITIES =  {
     "grid-tied_active_power": {"type": "energy", "unit": "kWh"},
