@@ -9,7 +9,7 @@ import os
 from random import randrange
 import datetime
 
-from const import IS_CONTAINER, VERSION, SLEEP_INTERVAL, ENTITIES
+from const import IS_CONTAINER, VERSION, ENTITIES
 
 # Suppress only the single InsecureRequestWarning from urllib3 needed
 requests.packages.urllib3.disable_warnings(requests.packages.urllib3.exceptions.InsecureRequestWarning)
@@ -23,6 +23,7 @@ if (IS_CONTAINER):
     MQTT_HOST = os.getenv("MQTT_HOST","earthquake.832-5.jp")
     MQTT_PASSWORD=os.getenv("MQTT_PASSWORD","")
     MQTT_USERNAME=os.getenv("MQTT_USERNAME","japan")   
+    UPDATE_INTERVAL = int(os.getenv("UPDATE_INTERVAL", "60"))
 
 class HuaweiSmartLoggerSensor:
     def __init__(self, name_constant):
@@ -177,6 +178,6 @@ if __name__ == '__main__':
 
     while True:
         request_and_publish()
-        logger.info(f"It is {datetime.datetime.now()} .. I am sleeping for {SLEEP_INTERVAL}")
-        print(f"It is {datetime.datetime.now()} ... I am sleeping for {SLEEP_INTERVAL}")
-        time.sleep(SLEEP_INTERVAL)
+        logger.info(f"It is {datetime.datetime.now()} .. I am sleeping for {UPDATE_INTERVAL}")
+        print(f"It is {datetime.datetime.now()} ... I am sleeping for {UPDATE_INTERVAL}")
+        time.sleep(UPDATE_INTERVAL)
