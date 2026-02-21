@@ -1,25 +1,22 @@
-#Use an official Python runtime as the base image
-ARG CACHEBUST=1
-FROM python:3.12-slim
+# https://developers.home-assistant.io/docs/add-ons/configuration#add-on-dockerfile
+ARG BUILD_FROM
+FROM $BUILD_FROM
 
 # Set the working directory
-WORKDIR /huawei_smart_logger
+WORKDIR /share/huawei_smart_logger
 
-# Install jq for parsing JSON configuration
-RUN apt-get update && apt-get install -y jq && rm -rf /var/lib/apt/lists/*
+# Use 'apk' instead of 'apt-get' (HA base images are Alpine-based)
+RUN apk add --no-cache python3 py3-pip jq
 
-# Copy all files from addon subfolder into the container
-# This replaces the 'git clone' command
-COPY . /huawei_smart_logger/
+# Copy all files from addon into the container
+COPY . .
 
-# Create a virtual environment and install the dependencies
-RUN python -m venv venv
-RUN venv/bin/pip install --upgrade pip
-RUN venv/bin/pip install paho.mqtt
-RUN venv/bin/pip install requests
+#Install dependencies directly 
+# (Virtual environments are rarely used inside containers; the container IS the environment)
+RUN pip install --no-cache-dir paho-mqtt requests --break-system-packages
 
 # Ensure your run script is executable
-RUN chmod a+x /huawei_smart_logger/run.sh
+RUN chmod a+x run.sh
 
 # Run the app via the startup script
-CMD [ "/huawei_smart_logger/run.sh" ]
+CMD [ "./run.sh" ]
