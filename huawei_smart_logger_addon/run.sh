@@ -1,54 +1,32 @@
-#!/bin/bash
+#!/usr/bin/with-contenv bashio
+# The line above uses the Home Assistant "Bashio" library, 
+# which makes reading config options MUCH easier than raw jq.
+
 set -e
 
-CONFIG_PATH=/data/options.json
+echo "Starting Huawei Smart Logger Add-on..."
 
-# Check if config file exists
-if [ ! -f "$CONFIG_PATH" ]; then
-    echo "WARNING: No configuration found at $CONFIG_PATH"
-    echo "Using defaults from config.yaml"
-    HUAWEI_HOST="https://192.168.1.22"
-    HUAWEI_USERNAME="admin"
-    HUAWEI_PASSWORD="admin"
-    MQTT_HOST="homeassistant"
-    MQTT_USERNAME="hassio"
-    MQTT_PASSWORD="changeMe"
-    UPDATE_INTERVAL=60
-    
-else
-    echo "Loading configuration from $CONFIG_PATH"
-   # cat $CONFIG_PATH  # ... Print the entire config file for debugging
+# 1. Get configuration using bashio (cleaner than raw jq)
+# If these keys in your config.yaml are lowercase, use lowercase here.
+HUAWEI_HOST=$(bashio::config 'HUAWEI_HOST')
+HUAWEI_USERNAME=$(bashio::config 'HUAWEI_USERNAME')
+HUAWEI_PASSWORD=$(bashio::config 'HUAWEI_PASSWORD')
+MQTT_HOST=$(bashio::config 'MQTT_HOST')
+MQTT_USERNAME=$(bashio::config 'MQTT_USERNAME')
+MQTT_PASSWORD=$(bashio::config 'MQTT_PASSWORD')
+UPDATE_INTERVAL=$(bashio::config 'UPDATE_INTERVAL')
 
-    # Extract values from the JSON config file
-    HUAWEI_HOST=$(jq -r '.HUAWEI_HOST' $CONFIG_PATH)
-    HUAWEI_USERNAME=$(jq -r '.HUAWEI_USERNAME' $CONFIG_PATH)
-    HUAWEI_PASSWORD=$(jq -r '.HUAWEI_PASSWORD' $CONFIG_PATH)
-    MQTT_HOST=$(jq -r '.MQTT_HOST' $CONFIG_PATH)
-    MQTT_USERNAME=$(jq -r '.MQTT_USERNAME' $CONFIG_PATH)
-    MQTT_PASSWORD=$(jq -r '.MQTT_PASSWORD' $CONFIG_PATH)
-    UPDATE_INTERVAL=$(jq -r '.UPDATE_INTERVAL' $CONFIG_PATH)
-fi
-
-# Export as environment variables
+# 2. Export variables so the Python script can see them
 export HUAWEI_HOST
 export HUAWEI_USERNAME
 export HUAWEI_PASSWORD
 export MQTT_HOST
 export MQTT_USERNAME
+export MQTT_PASSWORD
 export UPDATE_INTERVAL
 
-# Debug: Print the variables before starting Python
-#echo "========================================="
-#echo "Environment Variables Being Passed:"
-#echo "HUAWEI_HOST: $HUAWEI_HOST"
-#echo "HUAWEI_USERNAME: $HUAWEI_USERNAME"
-#echo "HUAWEI_PASSWORD: $HUAWEI_PASSWORD"
-#echo "MQTT_HOST: $MQTT_HOST"
-#echo "MQTT_USERNAME: $MQTT_USERNAME"
-#echo "MQTT_PASSWORD: $MQTT_PASSWORD"
-#echo "UPDATE_INTERVAL: $UPDATE_INTERVAL"
-#echo "========================================="
-
-# Run the Python application
-cd /huawei_smart_logger
-exec venv/bin/python -u huawei_smart_logger.py
+# 3. Run the Python application directly
+# We use 'python3' because we aren't using a venv anymore.
+# We use 'exec' so Python becomes PID 1 (important for clean shutdowns).
+cd /share/huawei_smart_logger
+exec python3 -u huawei_smart_logger.py

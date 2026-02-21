@@ -6,7 +6,7 @@ FROM $BUILD_FROM
 WORKDIR /share/huawei_smart_logger
 
 # Use 'apk' instead of 'apt-get' (HA base images are Alpine-based)
-RUN apk add --no-cache python3 py3-pip jq
+RUN apk add --no-cache python3 py3-pip
 
 # Copy all files from addon into the container
 COPY . .
