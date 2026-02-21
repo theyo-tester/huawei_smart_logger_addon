@@ -6,7 +6,7 @@ import re
 import time
 import os
 import datetime
-from const import IS_CONTAINER, VERSION, ENTITIES
+from const import IS_CONTAINER, ENTITIES
 
 # Setup Logging
 logging.basicConfig(level=logging.INFO)
@@ -24,6 +24,7 @@ if IS_CONTAINER:
     MQTT_PASSWORD = os.getenv("MQTT_PASSWORD", "")
     MQTT_USERNAME = os.getenv("MQTT_USERNAME", "japan")
     UPDATE_INTERVAL = int(os.getenv("UPDATE_INTERVAL", "60"))
+    VERSION = os.getenv('BUILD_VERSION')
 
 class HuaweiSmartLoggerSensor:
     def __init__(self, name_constant):
