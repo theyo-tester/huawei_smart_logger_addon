@@ -14,7 +14,12 @@ from const import IS_CONTAINER, VERSION, ENTITIES
 # Suppress only the single InsecureRequestWarning from urllib3 needed
 requests.packages.urllib3.disable_warnings(requests.packages.urllib3.exceptions.InsecureRequestWarning)
 
+# Setup Logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
+# Suppress SSL warnings
+requests.packages.urllib3.disable_warnings(requests.packages.urllib3.exceptions.InsecureRequestWarning)
 
 if (IS_CONTAINER):
     HUAWEI_HOST = os.getenv("HUAWEI_HOST","https://192.168.50.38")
@@ -27,86 +32,33 @@ if (IS_CONTAINER):
 
 class HuaweiSmartLoggerSensor:
     def __init__(self, name_constant):
-        name_replace=name_constant
         name_object=ENTITIES[name_constant]
-        self.name = f"huawei_smart_logger_{name_replace}"
-        self.device_class = name_object['type'],
-        self.unit_of_measurement = name_object['unit'],
-        test = name_object.get('attribute')
-        if (test != None):
-           self.state_class = name_object['attribute']
-        else:
-            self.state_class = "measurement"
-        self.state_topic = f"homeassistant/sensor/huawei_smart_logger_{name_replace}/state"
-        self.unique_id = f"huawei_smart_logger_{name_replace}"
+        self.name = f"huawei_smart_logger_{name_constant}"
+        self.device_class = name_object['type']
+        self.unit_of_measurement = name_object['unit']
+        self.state_class = name_object.get('attribute', 'measurement')
+        self.state_topic = f"homeassistant/sensor/{self.name}/state"
+        self.unique_id = self.name
         self.device = {
-            "identifiers": [f"huawei_smart_logger_{name_replace}"][0],
-            "name": f"Huawei Smart Logger For {name_replace}",
+            "identifiers": [self.name],
+            "name": f"Huawei Smart Logger For {name_constant}",
         }
 
     def to_json(self):
         return {
             "name": self.name,
-            "device_class": self.device_class[0],
-            "unit_of_measurement": self.unit_of_measurement[0],
+            "device_class": self.device_class,
+            "unit_of_measurement": self.unit_of_measurement,
             "state_class": self.state_class,
             "state_topic": self.state_topic,
             "unique_id": self.unique_id,
             "device": self.device
         }
 
-
-def initialize():
-    logger = logging.getLogger(__name__)
-    logger.info(f"Initialization starting...")
-    print("Initialization starting...")
-    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
-    client.username_pw_set(MQTT_USERNAME,MQTT_PASSWORD)
-
-
-    try:
-      client.connect(MQTT_HOST, 1883)
-    except Exception as e:
-        print("Error connecting to MQTT Broker: " + str(e))
-
-    client.loop_start()
-
-    for entity in ENTITIES:
-        huawei_smart_logger_sensor=HuaweiSmartLoggerSensor(entity)
-        # Convert dictionary to JSON string
-        serialized_message = json.dumps(huawei_smart_logger_sensor.to_json())
-        print(f"Sending sensor -> {serialized_message}")
-        logger.info(f"Sending sensor -> {serialized_message}")
-        print(f"entity: homeassistant/sensor/huawei_smart_logger_{entity}/config")
-
-        try:
-            ret = client.publish(f"homeassistant/sensor/huawei_smart_logger_{entity}/config", payload=serialized_message, qos=2, retain=True)
-            ret.wait_for_publish()
-            if ret.rc == mqtt.MQTT_ERR_SUCCESS:
-                pass
-            else:
-                print("Failed to queue message with error code " + str(ret))
-        except Exception as e:
-            print("Error publishing message: " + str(e))   
-
-    client.loop_stop()        
-    try:
-        client.disconnect()
-    except Exception as e:
-        print("Error disconnecting from MQTT Broker: " + str(e))
-    logger.info(f"Initialization complete...")
-    print("Initialization complete...")
-
-def request_and_publish():
-
-    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
-    client.username_pw_set(MQTT_USERNAME,MQTT_PASSWORD)
-
-    logger = logging.getLogger(__name__)
-
-    # Perform login and save the cookies
+def get_session_and_token():
+    """Handles the login logic and returns a session and CSRF token."""
+    session = requests.Session()
     login_url = f"{HUAWEI_HOST}/action/login"
-
     login_data = {
         'langlist': 0,
         'usrname': HUAWEI_USERNAME,
@@ -115,69 +67,95 @@ def request_and_publish():
         'login': 'Log+In'
     }
 
-    session = requests.Session()
-    session.post(login_url, data=login_data, verify=False)
+    try:
+        # 1. Login
+        session.post(login_url, data=login_data, verify=False, timeout=10)
+        
+        # 2. Get CSRF token
+        csrf_url = f"{HUAWEI_HOST}/js/csrf.jst"
+        response = session.get(csrf_url, verify=False, timeout=10)
+        token_match = re.search(r'tokenObj.value = \"([^\"]+)\"', response.text)
+        
+        if token_match:
+            return session, token_match.group(1)
+        else:
+            logger.error("Failed to find CSRF token in response.")
+            return None, None
+    except Exception as e:
+        logger.error(f"Login failed: {e}")
+        return None, None
 
-    # Get CSRF token and save it to a file
-    csrf_url = f"{HUAWEI_HOST}/js/csrf.jst"
-    response = session.get(csrf_url, verify=False)
-    token_match = re.search(r'tokenObj.value = \"([^\"]+)\"', response.text)
-    csrf_token = token_match.group(1) if token_match else None
+def send_discovery(mqtt_client):
+    """Sends MQTT discovery configs for all entities."""
+    for entity in ENTITIES:
+        sensor = HuaweiSmartLoggerSensor(entity)
+        discovery_topic = f"homeassistant/sensor/huawei_smart_logger_{entity}/config"
+        payload = json.dumps(sensor.to_json())
+        mqtt_client.publish(discovery_topic, payload=payload, qos=1, retain=True)
+    logger.info("MQTT Discovery sent.")
 
-    # Use the token to make the next request and process the response
+def request_and_publish(session, client, csrf_token):
+    # info_url for "Running Information"
     info_url = f"{HUAWEI_HOST}/get_set_page_info.asp?type=88"
     headers = {'x-csrf-token': csrf_token}
 
-    response = session.get(info_url, headers=headers, verify=False)
-    response_lines = response.text.split('|')
     try:
-        client.connect(MQTT_HOST, 1883)
-    except Exception as e:
-        print("Error connecting to MQTT Broker: " + str(e))
-
-    client.loop_start()
-
-    for line in response_lines:
-
-        element = line.split('~')
-        if len(element) < 7: 
-            continue
+        response = session.get(info_url, headers=headers, verify=False, timeout=10)
         
-        entity= element[2].lower()
-        if entity == "(null)":
-            continue
+        # Check if session expired (when not logged it, the info url shows 404 - not found)
+        if response.status_code == 404 or response.status_code != 200:
+            return False # Signal that we need to re-login
 
-        entity = re.sub(r'\s+', '_', entity)
-        entity = re.sub(r'\'', '', entity)
-        entity = re.sub(r'/', '_', entity)
-        value = element[7]
+        response_lines = response.text.split('|')
+        for line in response_lines:
+            element = line.split('~')
+            if len(element) < 8: # Ensure index 7 exists
+                continue
+            
+            entity_raw = element[2].lower().strip()
+            if entity_raw == "(null)":
+                continue
 
-        print(f"{entity} -> {value}")
-        try:
-            ret = client.publish(f"homeassistant/sensor/huawei_smart_logger_{entity}/state", payload=value, qos=2, retain=False)  
-            ret.wait_for_publish()
-            if ret.rc == mqtt.MQTT_ERR_SUCCESS:
-                pass
-            else:
-                print("Failed to queue message with error code " + str(ret))
-        except Exception as e:
-            print("Error publishing message: " + str(e))
+            # Clean entity name for MQTT topic
+            entity = re.sub(r'\'', '', entity_raw) # Delete quotes
+            entity = re.sub(r'[\s/]+', '_', entity) # Spaces/Slashes to Underscore
+            value = element[7]
+            state_topic = f"homeassistant/sensor/huawei_smart_logger_{entity}/state"
+            client.publish(state_topic, payload=value, qos=1, retain=False)
 
-    client.loop_stop()
-    try:
-        client.disconnect()
+        return True
     except Exception as e:
-        print("Error disconnecting from MQTT Broker: " + str(e))
-
+        logger.error(f"Data fetch error: {e}")
+        return False
 
 if __name__ == '__main__':
-    logger = logging.getLogger(__name__)
-    logger.info(f"I am huawei_smart_logger running version {VERSION}")
-    print(f"I am huawei_smart_logger running version {VERSION}")
-    initialize()
+    logger.info(f"Starting Huawei Smart Logger Addon v{VERSION}")
+
+    # 1. Setup Persistent MQTT Client
+    mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+    mqtt_client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
+    mqtt_client.connect(MQTT_HOST, 1883)
+    mqtt_client.loop_start()
+
+    send_discovery(mqtt_client)
+
+    # 2. Setup Persistent HTTP Session
+    active_session = None
+    active_token = None
 
     while True:
-        request_and_publish()
-        logger.info(f"It is {datetime.datetime.now()} .. I am sleeping for {UPDATE_INTERVAL}")
-        print(f"It is {datetime.datetime.now()} ... I am sleeping for {UPDATE_INTERVAL}")
+        # Re-login logic if session is missing or invalid
+        if active_session is None:
+            logger.info("Attempting SmartLogger login...")
+            active_session, active_token = get_session_and_token()
+
+        if active_session:
+            success = request_and_publish(active_session, mqtt_client, active_token)
+            if not success:
+                logger.warning("Session expired or fetch failed. Clearing session for retry.")
+                active_session = None
+                active_token = None
+
+        
+        logger.info(f"Sleeping for {UPDATE_INTERVAL} seconds...")
         time.sleep(UPDATE_INTERVAL)
