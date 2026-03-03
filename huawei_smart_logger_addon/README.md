@@ -18,4 +18,14 @@ Will be done from the Addon Configuration Menu. You will need to specify
 ## Limitations
 The actual implementation shows the aggregated values, no separate datas (for each inverter connected separately) available.
 
+## Note
+I suggest to use a direct modbus tcp integration instead, as you already have all the hardware needed for this matter
+You can find here my modbus config for HomeAssistant here: https://github.com/theyo-tester/ha-smartlogger3000-modbus-config
+
+### Why?
+- Granular Data: You can access much more specific data. Every device connected to the SmartLogger can deliver unique information.
+- Custom Polling: You can define different polling frequencies for different registers.
+- Stability: The HTTP requests in the Add-on use an unofficial, undocumented API likely discovered via reverse engineering. A firmware update could break it instantly.
+- Speed: Nothing beats Modbus for real-time data retrieval. I couldn’t achieve true real-time updates via the API, even if the “Real-time mode” in the FusionSolar app is available.
+
 
